@@ -43,7 +43,7 @@ class PauseSimulationCallback(BaseCallback):
 
 # Usage
 env = DummyVecEnv([lambda: VelocityControlEnv()])
-model = PPO("MlpPolicy", env, n_steps=1000, verbose=1)
+model = PPO("MlpPolicy", env, n_steps=1500, verbose=1)
 
 # Initialize the callback
 pause_simulation_callback = PauseSimulationCallback()

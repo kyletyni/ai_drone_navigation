@@ -38,14 +38,14 @@ class VelocityControlEnv(gym.Env):
         self.navigate_service = rospy.ServiceProxy('/navigate', srv.Navigate)
 
         # Action: Velocity [-1, 1]
-        max_vel = 0.2 # m/s
+        max_vel = 0.25 # m/s
         self.action_space = spaces.Box(low=-max_vel, high=max_vel, shape=(3,), dtype=np.float32)
 
         # Observation Space: (cur_pos, target_pos, cur_velcoity)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
-        self.current_obs = np.array([0, 0, BASE_HEIGHT, 0, 0, 0, 0, 0, 0])
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
+        self.current_obs = np.array([0, 0, BASE_HEIGHT, 0, 0, 0])
 
-        self.target_pos = np.array([0.0, 0.0, 20.0])
+        self.target_pos = np.array([0.0, 0.0, 5.0])
         self.current_pos = np.array([0.0, 0.0, BASE_HEIGHT])
         self.reached_goal = False
 
@@ -60,8 +60,7 @@ class VelocityControlEnv(gym.Env):
 
         self.reset_world_service()
 
-        self.current_pos, self.target_pos = new_points()
-        respawn_point = self.current_pos
+        respawn_point = new_respawn_point(self.target_pos)
 
         state = ModelState()
         state.model_name = 'clover'
@@ -89,7 +88,7 @@ class VelocityControlEnv(gym.Env):
         _action = action.reshape(-1)
 
         # Introduce randomness as a percentage of the original action values
-        noise_percentage = 0.1  # Adjust the percentage of noise as needed
+        noise_percentage = 0.12  # Adjust the percentage of noise as needed
         random_noise = _action * np.random.uniform(-noise_percentage, noise_percentage, size=_action.shape)
         _action_with_noise = _action + random_noise
     
@@ -102,14 +101,22 @@ class VelocityControlEnv(gym.Env):
         rospy.sleep(0.004)
         self.update_drone_state()
 
-        dist = np.linalg.norm(self.current_pos - self.target_pos)
+        dist = np.linalg.norm(self.rel_pos)
 
-        reward = max(0, 1 - dist)
+        reward = -dist * 3
         
         if (dist < 0.25):
+            reward += 100
+            reward -= 1 * np.linalg.norm(self.linear_velocity)
+
+        if (dist < 0.5):
+            reward += 50
+
+        if (dist < 1):
+            reward += 20
+
+        if (dist < 1.5):
             reward += 5
-            reward -= 0.2 * np.linalg.norm(self.linear_velocity) - \
-                      0.2 * np.linalg.norm(_action)
 
         if self.current_step % 10 == 0:
             print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}')
@@ -117,7 +124,7 @@ class VelocityControlEnv(gym.Env):
         if self.flipped:
             reward = -10
 
-        if dist > 2:
+        if dist > 3:
             # reward = -10
             done = True
 
@@ -153,6 +160,9 @@ class VelocityControlEnv(gym.Env):
             print("Service call failed: %s" % e)
 
         x, y, z = _state.pose.position.x, _state.pose.position.y, _state.pose.position.z
+        rel_x, rel_y, rel_z = x - self.target_pos[0], y - self.target_pos[1], z - self.target_pos[2]
+        self.rel_pos = np.array([rel_x, rel_y, rel_z])
+
         x_target, y_target, z_target = self.target_pos[0], self.target_pos[1], self.target_pos[2]
         linear_x, linear_y, linear_z = _state.twist.linear.x, _state.twist.linear.y, _state.twist.linear.z
         yaw, pitch, roll = quaternion_to_euler(_state.pose.orientation)
@@ -162,8 +172,7 @@ class VelocityControlEnv(gym.Env):
         
         self.flipped = np.abs(roll) > np.pi/2 or np.abs(pitch) > np.pi/2
 
-        self.current_obs = np.array([x, y, z,
-                                     x_target, y_target, z_target,
+        self.current_obs = np.array([rel_x, rel_y, rel_z,
                                      linear_x, linear_y, linear_z])
 
     def set_velocity(self, vx, vy, vz):

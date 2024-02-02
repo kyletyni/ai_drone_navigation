@@ -95,34 +95,17 @@ def get_drone_normal(yaw, pitch, roll):
 
     return normal_vector
 
-def new_points():
+def new_respawn_point(point):
+    distance = random.uniform(0, 2)
+    theta = random.uniform(0, 2 * np.pi)  # Azimuthal angle
+    phi = random.uniform(0, np.pi)        # Polar angle
 
-    # generates first random point
-    x = random.uniform(-3, 3)
-    y = random.uniform(-3, 3)
-    z = random.uniform(1, 3)
+    # Convert spherical coordinates to Cartesian coordinates
+    x = point[0] + distance * np.sin(phi) * np.cos(theta)
+    y = point[1] + distance * np.sin(phi) * np.sin(theta)
+    z = point[2] + distance * np.cos(phi)
 
-    first_point = np.array([x, y, z])
-
-    min_distance, max_distance = 0.1, 0.8
-
-    # Generate a random direction vector
-    direction_vector = [random.uniform(-1, 1) for _ in range(3)]
-    
-    # Normalize the direction vector
-    magnitude = math.sqrt(sum(component ** 2 for component in direction_vector))
-    direction_vector = [component / magnitude for component in direction_vector]
-    
-    # Generate a random distance between min_distance and max_distance
-    distance = random.uniform(min_distance, max_distance)
-    
-    # Calculate the second point
-    second_point = [first_point[i] + direction_vector[i] * distance for i in range(3)]
-
-    if second_point[2] < 0.8:
-        second_point[2] = 0.8
-
-    return first_point, second_point
+    return np.array([x, y, z])
 
 def new_move_point(point):
     distance = random.uniform(0, 2)
