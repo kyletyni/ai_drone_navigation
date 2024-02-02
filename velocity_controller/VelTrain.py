@@ -1,7 +1,7 @@
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from VelEnv import PositionControlEnv
+from VelEnv import VelocityControlEnv
 import rospy
 import torch
 from stable_baselines3 import PPO
@@ -42,12 +42,12 @@ class PauseSimulationCallback(BaseCallback):
             print("Failed to unpause simulation: %s" % e)
 
 # Usage
-env = DummyVecEnv([lambda: PositionControlEnv()])
-model = PPO("MlpPolicy", env, n_steps=500, verbose=1)
+env = DummyVecEnv([lambda: VelocityControlEnv()])
+model = PPO("MlpPolicy", env, n_steps=1000, verbose=1)
 
 # Initialize the callback
 pause_simulation_callback = PauseSimulationCallback()
-checkpoint_callback = CheckpointCallback(save_freq=25000, save_path='./models/', name_prefix='drl_model')#, verbose=1, save_replay_buffer=False)
+checkpoint_callback = CheckpointCallback(save_freq=20000, save_path='../models/', name_prefix='vel_ctrl')#, verbose=1, save_replay_buffer=False)
 
 # Combine the callbacks
 callback_list = [pause_simulation_callback, checkpoint_callback]

@@ -23,10 +23,10 @@ import tf.transformations as transformations
 BASE_HEIGHT = 0.0607
 pi = np.pi
 
-class PositionControlEnv(gym.Env):
+class VelocityControlEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     def __init__(self):
-        super(PositionControlEnv, self).__init__()
+        super(VelocityControlEnv, self).__init__()
 
         rospy.init_node('jupyter_velocity_controller', anonymous=True)
 
@@ -38,20 +38,20 @@ class PositionControlEnv(gym.Env):
         self.navigate_service = rospy.ServiceProxy('/navigate', srv.Navigate)
 
         # Action: Velocity [-1, 1]
-        self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
+        max_vel = 0.2 # m/s
+        self.action_space = spaces.Box(low=-max_vel, high=max_vel, shape=(3,), dtype=np.float32)
 
-        # State: current position [-10, 10]
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
-        self.current_obs = np.array([0, 0, BASE_HEIGHT, 0, 0, 0])
+        # Observation Space: (cur_pos, target_pos, cur_velcoity)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(9,), dtype=np.float32)
+        self.current_obs = np.array([0, 0, BASE_HEIGHT, 0, 0, 0, 0, 0, 0])
 
-        self.target_position = np.array([0.0, 0.0, 20.0])
+        self.target_pos = np.array([0.0, 0.0, 20.0])
         self.current_pos = np.array([0.0, 0.0, BASE_HEIGHT])
         self.reached_goal = False
 
         self.current_step = 0
         self.max_step_per_episode = 1000
         self.flipped = False
-
 
     def reset(self):
         self.current_step = 0
@@ -60,9 +60,8 @@ class PositionControlEnv(gym.Env):
 
         self.reset_world_service()
 
-        self.target_position = np.array([0, 0, 6])
-        # respawn_point = new_respawn_point(self.target_position)
-        respawn_point = self.target_position + np.random.uniform(-1.5, 1.5, size=3)
+        self.current_pos, self.target_pos = new_points()
+        respawn_point = self.current_pos
 
         state = ModelState()
         state.model_name = 'clover'
@@ -88,36 +87,40 @@ class PositionControlEnv(gym.Env):
     def step(self, action):
         self.current_step += 1
         _action = action.reshape(-1)
+
+        # Introduce randomness as a percentage of the original action values
+        noise_percentage = 0.1  # Adjust the percentage of noise as needed
+        random_noise = _action * np.random.uniform(-noise_percentage, noise_percentage, size=_action.shape)
+        _action_with_noise = _action + random_noise
     
-        self.set_velocity_service(vx=_action[0], vy=_action[1], vz=_action[2], yaw=0)
+        # self.set_velocity_service(vx=_action[0], vy=_action[1], vz=_action[2], yaw=0)
+        rospy.wait_for_service('/set_velocity')
+        self.set_velocity_service(vx=_action_with_noise[0], vy=_action_with_noise[1], vz=_action_with_noise[2], auto_arm=True)
         
         done = False
+
         rospy.sleep(0.004)
         self.update_drone_state()
 
-        dist = np.linalg.norm(self.current_relative_pos)
+        dist = np.linalg.norm(self.current_pos - self.target_pos)
 
-        if dist < 0.5:
-            dist = 0
-
-        reward = (5 - (dist ** 2)) - \
-                     0.05 * np.linalg.norm(self.linear_velocity) - \
-                     0.03 * np.linalg.norm(_action)
+        reward = max(0, 1 - dist)
+        
+        if (dist < 0.25):
+            reward += 5
+            reward -= 0.2 * np.linalg.norm(self.linear_velocity) - \
+                      0.2 * np.linalg.norm(_action)
 
         if self.current_step % 10 == 0:
-            pass
-            # print(f'Thrust Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}')
-            # print(f'Thrust Agent: reward:{reward:.4f} yaw:{self.current_orientation[0]:.4f} pitch:{self.current_orientation[1]:.4f} roll:{self.current_orientation[2]:.4f} Action: 0:{_action[0]:.4f} 1:{_action[1]:.4f} 2:{_action[2]:.4f} 3:{_action[3]:.4f}')
+            print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}')
             
-
         if self.flipped:
             reward = -10
 
-        if np.linalg.norm(self.current_relative_pos) > 3:
+        if dist > 2:
             # reward = -10
             done = True
 
-        self.current_step += 1
         if self.current_step >= 2000:
             done = True
 
@@ -131,7 +134,6 @@ class PositionControlEnv(gym.Env):
         #         print("new target:", self.target_position)
         # elif self.reached_goal:
         #     self.reached_goal = False
-
 
         if self.current_step >= 2000: 
             done = True
@@ -151,17 +153,17 @@ class PositionControlEnv(gym.Env):
             print("Service call failed: %s" % e)
 
         x, y, z = _state.pose.position.x, _state.pose.position.y, _state.pose.position.z
-        x_rel, y_rel, z_rel = x - self.target_position[0], y - self.target_position[1], z - self.target_position[2] 
-        linear_x, linear_y, linear_z = _state.twist.linear.x, _state.twist.linear.y, _state.twist.linear.z,
+        x_target, y_target, z_target = self.target_pos[0], self.target_pos[1], self.target_pos[2]
+        linear_x, linear_y, linear_z = _state.twist.linear.x, _state.twist.linear.y, _state.twist.linear.z
         yaw, pitch, roll = quaternion_to_euler(_state.pose.orientation)
 
         self.current_pos = np.array([x, y, z])
-        self.current_relative_pos = np.array([x_rel, y_rel, z_rel])
-        self.linear_velocity = np.array([_state.twist.linear.x, _state.twist.linear.y, _state.twist.linear.z])
+        self.linear_velocity = np.array([linear_x, linear_y, linear_z])
         
         self.flipped = np.abs(roll) > np.pi/2 or np.abs(pitch) > np.pi/2
 
-        self.current_obs = np.array([x_rel, y_rel, z_rel,
+        self.current_obs = np.array([x, y, z,
+                                     x_target, y_target, z_target,
                                      linear_x, linear_y, linear_z])
 
     def set_velocity(self, vx, vy, vz):
