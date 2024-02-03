@@ -94,7 +94,7 @@ class VelocityControlEnv(gym.Env):
     
         # self.set_velocity_service(vx=_action[0], vy=_action[1], vz=_action[2], yaw=0)
         rospy.wait_for_service('/set_velocity')
-        self.set_velocity_service(vx=_action_with_noise[0], vy=_action_with_noise[1], vz=_action_with_noise[2], auto_arm=True)
+        self.set_velocity_service(vx=_action[0], vy=_action[1], vz=_action[2], auto_arm=True)
         
         done = False
 
@@ -108,18 +108,22 @@ class VelocityControlEnv(gym.Env):
         if (dist < 0.25):
             reward += 100
             reward -= 1 * np.linalg.norm(self.linear_velocity)
-
-        if (dist < 0.5):
+        elif (dist < 0.5):
             reward += 50
-
-        if (dist < 1):
+        elif (dist < 1):
             reward += 20
-
-        if (dist < 1.5):
+        elif (dist < 1.5):
             reward += 5
 
+        align = alignment(self.target_pos, self.current_pos, self.linear_velocity)
+
+        if (dist > 0.25):
+            reward += max(0, align * 50)
+        else:
+            reward += 70
+
         if self.current_step % 10 == 0:
-            print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}')
+            print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}, align:{align:.4f}')
             
         if self.flipped:
             reward = -10

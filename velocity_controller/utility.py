@@ -95,6 +95,22 @@ def get_drone_normal(yaw, pitch, roll):
 
     return normal_vector
 
+def alignment(p1, p2, vel):
+    # Calculate the direction vector of the line connecting the two points.
+    d = p1 - p2
+
+    # Normalize the direction vector and the velocity vector.
+    d_norm = d / np.linalg.norm(d)
+    vel_norm = vel / np.linalg.norm(vel)
+
+    # Calculate the dot product of the normalized vectors.
+    dot_product = np.dot(d_norm, vel_norm)
+
+    # Clamp the dot product to the range [-1, 1].
+    alignment_value = np.clip(dot_product, -1, 1)
+
+    return alignment_value
+
 def new_respawn_point(point):
     distance = random.uniform(0, 2)
     theta = random.uniform(0, 2 * np.pi)  # Azimuthal angle
