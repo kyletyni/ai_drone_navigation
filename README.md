@@ -11,7 +11,7 @@ Screenshot of Gazebo simulator:
 
 Video of drone navigating to set position from random spawns:
 <a href="https://youtu.be/EwoKA0WvnwU" target="_blank">Video Link</a>
-![drone demo](https://github.com/kyletyni/ai_drone_navigation/blob/main/drone.gif)
+![drone demo](https://github.com/kyletyni/ai_drone_navigation/blob/main/images/drone.gif)
 
 Here is a video of the drone interfacing with VICON camera stream in real time, the drone fuses
 sensor data it receives from a live UDP stream with the onboard gyroscope.
