@@ -21,6 +21,7 @@ set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
 reset_world = rospy.ServiceProxy('/gazebo/reset_world', Empty)
 get_telemetry = rospy.ServiceProxy('get_telemetry', srv.GetTelemetry)
 set_rates = rospy.ServiceProxy('set_rates', srv.SetRates)
+set_position = rospy.ServiceProxy('set_position', srv.SetPosition)
 navigate = rospy.ServiceProxy('navigate', srv.Navigate)
 # set_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
 land = rospy.ServiceProxy('land', Trigger)
@@ -189,16 +190,25 @@ if __name__ == "__main__":
 
     
     
-    reset_world()
     rospy.wait_for_service('/set_rates')
-    set_rates(pitch_rate=0.0, yaw_rate=0.0, roll_rate=0, thrust=0.58, auto_arm=True)
+    set_rates(pitch_rate=0.0, yaw_rate=0.0, roll_rate=0, thrust=0.6, auto_arm=True)
     # navigate(x=0, y=0, z=1.5, speed=0.5, frame_id='body', auto_arm=True)
-    drone_state.reset_position = Vector3(1., 1., 1 + BASE_HEIGHT)
+    reset_world()
+    rospy.sleep(1)
+    drone_state.reset_position = Vector3(1., 1., 0 + BASE_HEIGHT)
     euler = [0, 0, 0]
     drone_state.reset_orientation = euler_to_quaternion(euler[0], euler[1], euler[2])
     reset_drone_state(drone_state)
-    unpause_physics(EmptyRequest())
+    # unpause_physics(EmptyRequest())
     
+    # takeoff()
+    
+    rospy.sleep(1)
+    # navigate(x=0, y=0, z=1.5, frame_id='body', auto_arm=True)
+    rospy.sleep(1)
+
+    rospy.wait_for_service('/navigate')
+    navigate(x=0, y=0, z=1.5, speed=0.4, frame_id='', auto_arm=True)
     # for i in range(100):
     #     relative_path =  "../../catkin_ws/devel/lib/px4/px4-drone_control"  # For example: '../folder/subfolder'
     #     arr = np.array([0.1, .1, 0.1, 0.1, 1])

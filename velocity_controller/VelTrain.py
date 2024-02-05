@@ -4,6 +4,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from VelEnv import VelocityControlEnv
 import rospy
 import torch
+import torch.nn as nn
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from std_srvs.srv import Empty, EmptyRequest
@@ -43,7 +44,24 @@ class PauseSimulationCallback(BaseCallback):
 
 # Usage
 env = DummyVecEnv([lambda: VelocityControlEnv()])
-model = PPO("MlpPolicy", env, n_steps=1500, verbose=1)
+
+# Modify the parameters of the PPO function here
+policy_kwargs = dict(net_arch=[64, 64], activation_fn=nn.Tanh)
+model = PPO(
+    "MlpPolicy",  # Use the default MlpPolicy
+    env=env,
+    n_steps=1000,
+    verbose=1,
+    learning_rate=0.0005,  # Set your desired learning rate
+    gamma=1,            # Set your desired gamma value
+    policy_kwargs=policy_kwargs
+    # net_arch=[64, 64],      # Set the desired architecture of the neural network
+    # activation_fn=torch.nn.Tanh,  # Use tanh activation function
+    # Add any other desired parameters here
+)
+
+# env = DummyVecEnv([lambda: VelocityControlEnv()])
+# model = PPO("MlpPolicy", env, n_steps=1000, verbose=1)
 
 # Initialize the callback
 pause_simulation_callback = PauseSimulationCallback()

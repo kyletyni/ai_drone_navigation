@@ -112,7 +112,7 @@ def alignment(p1, p2, vel):
     return alignment_value
 
 def new_respawn_point(point):
-    distance = random.uniform(0, 2)
+    distance = np.random.normal(0, 0.8)
     theta = random.uniform(0, 2 * np.pi)  # Azimuthal angle
     phi = random.uniform(0, np.pi)        # Polar angle
 

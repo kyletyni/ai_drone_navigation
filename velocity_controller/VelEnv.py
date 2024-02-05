@@ -42,8 +42,8 @@ class VelocityControlEnv(gym.Env):
         self.action_space = spaces.Box(low=-max_vel, high=max_vel, shape=(3,), dtype=np.float32)
 
         # Observation Space: (cur_pos, target_pos, cur_velcoity)
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(6,), dtype=np.float32)
-        self.current_obs = np.array([0, 0, BASE_HEIGHT, 0, 0, 0])
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
+        self.current_obs = np.array([0, 0, BASE_HEIGHT])
 
         self.target_pos = np.array([0.0, 0.0, 5.0])
         self.current_pos = np.array([0.0, 0.0, BASE_HEIGHT])
@@ -98,37 +98,49 @@ class VelocityControlEnv(gym.Env):
         
         done = False
 
-        rospy.sleep(0.004)
+        rospy.sleep(0.01)
         self.update_drone_state()
 
         dist = np.linalg.norm(self.rel_pos)
 
-        reward = -dist * 3
+        reward = (1 - dist ** 2)
+        if dist < 0.2:
+            reward = 1000
+
+        # if dist > 1:
+        #     reward = -(2 * dist - 2) ** 3
+        # else:
+        #     reward = 1 / (dist - 0.1) - 1
+
+        # reward = ((dist )** 3)
+
+        # if dist < 0.15:
+            # reward = 10000
         
-        if (dist < 0.25):
-            reward += 100
-            reward -= 1 * np.linalg.norm(self.linear_velocity)
-        elif (dist < 0.5):
-            reward += 50
-        elif (dist < 1):
-            reward += 20
-        elif (dist < 1.5):
-            reward += 5
+        # if (dist < 0.25):
+        #     reward += 1000
+        #     reward -= 1 * np.linalg.norm(self.linear_velocity)
+        # elif (dist < 0.5):
+        #     reward += 20
+        # elif (dist < 1):
+        #     reward += 5
+        # elif (dist < 1.5):
+        #     reward += 2
 
-        align = alignment(self.target_pos, self.current_pos, self.linear_velocity)
+        # align = alignment(self.target_pos, self.current_pos, self.linear_velocity)
 
-        if (dist > 0.25):
-            reward += max(0, align * 50)
-        else:
-            reward += 70
+        # if (dist > 0.25):
+        #     reward += min(100, 2 / (1 - align) - 2)
+        # else:
+        #     reward += 200
 
         if self.current_step % 10 == 0:
-            print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}, align:{align:.4f}')
+            print(f'Vel Agent: reward:{reward:.4f} vx:{_action[0]:.4f} vy:{_action[1]:.4f} vz:{_action[2]:.4f}')
             
         if self.flipped:
             reward = -10
 
-        if dist > 3:
+        if dist > 2:
             # reward = -10
             done = True
 
@@ -176,8 +188,7 @@ class VelocityControlEnv(gym.Env):
         
         self.flipped = np.abs(roll) > np.pi/2 or np.abs(pitch) > np.pi/2
 
-        self.current_obs = np.array([rel_x, rel_y, rel_z,
-                                     linear_x, linear_y, linear_z])
+        self.current_obs = np.array([[rel_x, rel_y, rel_z]])
 
     def set_velocity(self, vx, vy, vz):
         velocity_request = SetVelocityRequest()

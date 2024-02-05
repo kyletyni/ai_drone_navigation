@@ -58,7 +58,7 @@ phi, theta = np.mgrid[0.0:2.0*np.pi:100j, 0.0:np.pi:50j]
 x_sphere = sphere_radius * np.sin(theta) * np.cos(phi) + sphere_center[0]
 y_sphere = sphere_radius * np.sin(theta) * np.sin(phi) + sphere_center[1]
 z_sphere = sphere_radius * np.cos(theta) + sphere_center[2]
-ax.plot_surface(x_sphere, y_sphere, z_sphere, color='g', alpha=0.5)
+# ax.plot_surface(x_sphere, y_sphere, z_sphere, color='g', alpha=0.5)
 
 # edge lengths
 space = (2.4, 2.4, 2)
@@ -167,8 +167,9 @@ while len(queue) > 0:
 
 
 def heuristic(a, b):
-    """Manhattan distance as a heuristic"""
-    return abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
+    """Distance as a heuristic"""
+    return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
+    #return abs(a[0] - b[0]) + abs(a[1] - b[1]) + abs(a[2] - b[2])
 
 def reconstruct_path(came_from, current):
     """Reconstructs the path from the goal to the start"""
@@ -272,7 +273,7 @@ def a_star(start, goal, grid):
                 f_score[neighbor] = g_score[neighbor] + heuristic(neighbor, goal)
                 heapq.heappush(open_set, (f_score[neighbor], neighbor))
 
-path = a_star((0, 0, 0), (1, 2.3, 1), valid_points)
+path = a_star((0, 0, 0), (2, 2.3, 1), valid_points)
 print(path)
 line_segments = np.array(path)
 ax.plot(line_segments[:, 0], line_segments[:, 1], line_segments[:, 2], color='m', marker='o')
